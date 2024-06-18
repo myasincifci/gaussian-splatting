@@ -4,8 +4,6 @@ import matplotlib.transforms as transforms
 
 def ellipse_ndim(mean, cov, ax, edgecolor):
     for m, c in zip(mean, cov):
-        print(m, c)
-
         ellipse(m, c, ax, edgecolor=edgecolor)
 
 def ellipse(mean, cov, ax, n_std=1.0, facecolor='none', **kwargs):
