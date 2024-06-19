@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 
 ### Project ##################################################################
 
@@ -140,17 +141,17 @@ def rasterize_gaussians(
     return out_img
 
 def main():
-    N = 100
+    N = 1_000
 
-    mu = (torch.rand((N,3)) - 0.5) * 2
-    scale = torch.rand((N,3)) * 0.5
+    mu = (torch.rand((N,3)) - 0.5) * 4.
+    scale = torch.rand((N,3)) * 0.2
     quat = torch.rand((N, 4))
     col = torch.rand((N, 3))
     opc = torch.rand((N,))
 
     # Output Image Width and Height
-    W = 1920 
-    H = 1080
+    W = 1290 
+    H =  720
 
     fov_x = math.pi / 2.0 # Angle of the camera frustum 90°
     focal = 0.5 * float(W) / math.tan(0.5 * fov_x) # Distance to Image Plane
