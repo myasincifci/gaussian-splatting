@@ -9,13 +9,13 @@ def P(f_x, f_y, h, w, n, f):
         [0., 2.*f_y/h, 0., 0.],
         [0., 0., (f+n)/(f-n), -2*f*n/(f-n)],
         [0., 0., 1., 0.],
-    ])
+    ], device='cuda')
 
     return P
 
 def J(f_x, f_y, t_x, t_y, t_z):
     N = len(t_x)
-    J = torch.zeros((N,2,3))
+    J = torch.zeros((N,2,3), device='cuda')
     J[:,0,0] = f_x/t_z
     J[:,1,1] = f_y/t_z
     J[:,0,2] = -f_x*t_x/t_z**2
@@ -27,7 +27,7 @@ def quat_to_rot(quaternion):
     N = quaternion.shape[0]
     x, y, z, w = quaternion[:,0],quaternion[:,1],quaternion[:,2],quaternion[:,3],
 
-    R = torch.empty((N,3,3))
+    R = torch.empty((N,3,3), device='cuda')
     
     R[:,0,0] = 1-2*(y**2+z**2)
     R[:,0,1] = 2*(x*y-w*z)
@@ -61,7 +61,7 @@ def project_gaussians(
     N = means3d.shape[0]
 
     # Project Means
-    t = viewmat @ torch.cat((means3d.T, torch.ones(1, N)), dim=0) # (4, 4) x (4, N) = (4, N)
+    t = viewmat @ torch.cat((means3d.T, torch.ones(1, N, device='cuda')), dim=0) # (4, 4) x (4, N) = (4, N)
     t_ = P(fx, fy, img_height, img_width, clip_thresh, 10) @ t # (4, 4) x (4, N) = (4, N)
 
     xys = torch.vstack((
@@ -90,7 +90,7 @@ def inv_2d(A):
     A_inv = torch.tensor([
         [A[1,1], -A[0,1]],
         [-A[1,0], A[0,0]],
-    ])
+    ], device='cuda')
     A_inv *= 1/(A[0,0]*A[1,1]-A[0,1]*A[1,0])
 
     return A_inv
@@ -124,16 +124,17 @@ def rasterize_gaussians(
         return_alpha=False
     ):
     x, y = torch.meshgrid(torch.linspace(0,img_width,img_width),torch.linspace(0,img_height,img_height), indexing='xy')
-    x = x.reshape(1,-1); y = y.reshape(1, -1)
+    x = x.reshape(1,-1).to('cuda'); y = y.reshape(1, -1).to('cuda')
 
     # Sort mu_ by depth
     _, ind = torch.sort(depths)
     xys, covs, colors = xys[ind], covs[ind], colors[ind]
 
-    out_img = torch.zeros(img_height, img_width, 3)
+    out_img = torch.zeros(img_height, img_width, 3, device='cuda')
     pixels_xy = torch.cat((x.reshape(1,-1),y.reshape(1,-1)), dim=0)
-    cum_alphas = torch.ones(1, img_height, img_width)
+    cum_alphas = torch.ones(1, img_height, img_width, device='cuda')
     for m, S, c, o in tqdm(zip(xys, covs, colors, opacity), total=len(xys)):
+
         alpha = g(pixels_xy, m, S).view(1, img_height, img_width) * o
         out_img += (alpha * c.view(3,1,1) * cum_alphas).permute((1,2,0)).flip(dims=(0,))
         cum_alphas *= (1 - alpha)
@@ -141,13 +142,15 @@ def rasterize_gaussians(
     return out_img
 
 def main():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     N = 1_000
 
-    mu = (torch.rand((N,3)) - 0.5) * 4.
-    scale = torch.rand((N,3)) * 0.2
-    quat = torch.rand((N, 4))
-    col = torch.rand((N, 3))
-    opc = torch.rand((N,))
+    mu = (torch.rand((N,3), device=device) - 0.5) * 4.
+    scale = torch.rand((N,3), device=device) * 0.2
+    quat = torch.rand((N, 4), device=device)
+    col = torch.rand((N, 3), device=device)
+    opc = torch.rand((N,), device=device)
 
     # Output Image Width and Height
     W = 1290 
@@ -156,7 +159,7 @@ def main():
     fov_x = math.pi / 2.0 # Angle of the camera frustum 90°
     focal = 0.5 * float(W) / math.tan(0.5 * fov_x) # Distance to Image Plane
 
-    viewmat = torch.eye(4)
+    viewmat = torch.eye(4, device=device)
     viewmat[:3,3] = torch.tensor([0,0,-4])
 
     (
@@ -192,11 +195,11 @@ def main():
     )
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.matshow(out_img)
+    ax1.matshow(out_img.cpu().detach())
 
     ellipse_ndim(mu_, cov_, ax2, edgecolor='red')
     for m in mu_:
-        ax2.scatter(m[0], m[1])
+        ax2.scatter(m[0].cpu(), m[1].cpu())
     # ax2.scatter(mu_[1,0], mu_[1,1])
     ax2.set_aspect('equal', adjustable='box')
 
