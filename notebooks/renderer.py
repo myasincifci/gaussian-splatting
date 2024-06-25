@@ -48,6 +48,7 @@ def project_gaussians(
         scales, 
         # glob_scale, 
         quats, 
+        colors, # for sorting only
         viewmat, 
         fx, 
         fy, 
@@ -79,6 +80,9 @@ def project_gaussians(
     J_ = J(fx, fy, t[0], t[1], t[2])
     R_cw = viewmat[:3,:3]
     covs = J_ @ R_cw @ Sigma @ R_cw.T @ J_.permute((0,2,1))
+
+    _, ind = torch.sort(depths)
+    xys, covs, colors = xys[ind], covs[ind], colors[ind]
 
     return xys, covs, depths 
 

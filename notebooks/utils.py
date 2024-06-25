@@ -1,4 +1,5 @@
 import torch
+import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 
@@ -47,3 +48,18 @@ def camera_intr(x_0, y_0, f_x, f_y, s):
     ])
 
     return transl @ scale @ shear
+
+def plot_tile_map(tile_map, H, W, ax=None):
+    tH, tW = len(tile_map), len(tile_map[0]) 
+    mask = torch.zeros((tH, tW))
+    for y in range(tH):
+        for x in range(tW):
+            if tile_map[y][x]:
+                mask[y,x] = sum(tile_map[y][x]) + 1
+
+    mask = torch.nn.functional.interpolate(mask.view(1,1,*mask.shape), size=(H, W)).squeeze()
+
+    if not ax:
+        plt.imshow(mask)
+    else:
+        ax.imshow(mask)
