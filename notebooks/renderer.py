@@ -84,6 +84,73 @@ def project_gaussians(
 
     # return xys, depths, radii, conics, compensation, num_tiles_hit, cov3d
 
+### Tile #######################################################################
+def get_eigenvalues(cov):
+    a = cov[:,0,0]; b = cov[:,0,1]; d = cov[:,1,1]
+
+    A = torch.sqrt(a*a - 2*a*d + 4*b**2 + d*d)
+    B = a + d
+
+    return 0.5 * (A + B), 0.5 * (-A + B)
+
+def get_radii(cov):
+    eigs = get_eigenvalues(cov)
+    l1, l2 = eigs[0], eigs[1]
+    return 1 * torch.sqrt(l1), 1 * torch.sqrt(l2) # TODO: change to 3 * sigma
+
+def get_box(mu, cov):
+    N = len(mu)
+
+    r1, r2 = get_radii(cov)
+
+    B = torch.empty((N, 4, 2))
+
+    B[:,0,0] = mu[:,0] - r1; B[:,0,1] = mu[:,1] + r2
+    B[:,1,0] = mu[:,0] + r1; B[:,1,1] = mu[:,1] + r2
+    B[:,3,0] = mu[:,0] - r1; B[:,2,1] = mu[:,1] - r2
+    B[:,2,0] = mu[:,0] + r1; B[:,3,1] = mu[:,1] - r2
+    
+    return B
+
+def get_orientation(cov):
+    a = cov[:,0,0]; b = cov[:,0,1]; c = cov[:,1,1]
+    eigs = get_eigenvalues(cov)
+    l1 = eigs[0]
+
+    theta = torch.zeros_like(a)
+    theta[(b == 0) & (a >= c)] = torch.pi/2
+    theta[b != 0] = torch.atan2(l1 - a, b)
+
+    return theta
+
+def get_rotation(cov):
+    theta = get_orientation(cov)
+
+    cos = torch.cos(theta)
+    sin = torch.sin(theta)
+
+    R = torch.empty((len(cos),2,2))
+    R[:,0,0] = cos
+    R[:,0,1] = -sin
+    R[:,1,0] = sin
+    R[:,1,1] = cos
+
+    return R
+
+def get_bounding_boxes(xys, covs):
+    rot = get_rotation(covs)
+
+    box = get_box(xys, covs)
+    box_mean = box.mean(dim=1, keepdim=True)
+
+    rot_box = (rot @ (box - box_mean).permute((0,2,1))).permute((0,2,1)) + box_mean
+
+    return rot_box
+
+def tile_gaussians(xys, covs, depths):
+    # Compute Bounding-Boxes
+    pass
+
 ### Rasterize ##################################################################
 
 def inv_2d(A):
