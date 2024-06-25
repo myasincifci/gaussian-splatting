@@ -96,7 +96,8 @@ def get_eigenvalues(cov):
 def get_radii(cov):
     eigs = get_eigenvalues(cov)
     l1, l2 = eigs[0], eigs[1]
-    return 1 * torch.sqrt(l1), 1 * torch.sqrt(l2) # TODO: change to 3 * sigma
+    s = 2
+    return s * torch.sqrt(l1), s * torch.sqrt(l2) # TODO: change to 3 * sigma
 
 def get_box(mu, cov):
     N = len(mu)
@@ -147,11 +148,24 @@ def get_bounding_boxes(xys, covs):
 
     return rot_box
 
-def tile_gaussians(xys, covs, depths):
+def tile_gaussians(xys, covs, tile_size, img_height, img_width):
     # Compute Bounding-Boxes
     bbs = get_bounding_boxes(xys, covs)
+    tile_map = [[[] for tw in range(img_width//tile_size)] for th in range(img_height//tile_size)]
 
-    
+    minmax = torch.cat(((bbs.amin(dim=1) / tile_size).floor()[:,:,None], (bbs.amax(dim=1) / tile_size).ceil()[:,:,None]), dim=2)
+    minmax[:,0].clamp_(0, img_width//tile_size - 1)
+    minmax[:,1].clamp_(0, img_height//tile_size - 1)
+
+    for i, g in enumerate(minmax.to(torch.long)):
+        x_min, x_max = g[0]
+        y_min, y_max = g[1]
+
+        for x in range(x_min, x_max):
+            for y in range(y_min, y_max):
+                tile_map[y][x].append(i)
+
+    return tile_map
 
 ### Rasterize ##################################################################
 
