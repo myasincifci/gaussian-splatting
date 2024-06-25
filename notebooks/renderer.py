@@ -149,7 +149,9 @@ def get_bounding_boxes(xys, covs):
 
 def tile_gaussians(xys, covs, depths):
     # Compute Bounding-Boxes
-    pass
+    bbs = get_bounding_boxes(xys, covs)
+
+    
 
 ### Rasterize ##################################################################
 
