@@ -153,6 +153,9 @@ def get_bounding_boxes(xys, covs):
     return rot_box
 
 def tile_gaussians(xys, covs, tile_size, img_height, img_width):
+    assert img_height % tile_size == 0
+    assert img_width % tile_size == 0
+    
     # Compute Bounding-Boxes
     bbs = get_bounding_boxes(xys, covs)
     tile_map = [[[] for tw in range(img_width//tile_size)] for th in range(img_height//tile_size)]
@@ -165,8 +168,8 @@ def tile_gaussians(xys, covs, tile_size, img_height, img_width):
         x_min, x_max = g[0]
         y_min, y_max = g[1]
 
-        for x in range(x_min, x_max):
-            for y in range(y_min, y_max):
+        for x in range(x_min, x_max+1):
+            for y in range(y_min, y_max+1):
                 tile_map[y][x].append(i)
 
     return tile_map
