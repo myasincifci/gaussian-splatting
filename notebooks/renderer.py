@@ -218,15 +218,15 @@ def rasterize_gaussians(
 
     # Sort mu_ by depth
     _, ind = torch.sort(depths)
-    xys, covs, colors = xys[ind], covs[ind], colors[ind]
+    xys_, covs_, colors_ = xys[ind], covs[ind], colors[ind]
 
     out_img = torch.zeros(img_height, img_width, 3)
     pixels_xy = torch.cat((x.reshape(1,-1),y.reshape(1,-1)), dim=0)
     cum_alphas = torch.ones(1, img_height, img_width)
-    for m, S, c, o in tqdm(zip(xys, covs, colors, opacity), total=len(xys)):
+    for m, S, c, o in tqdm(zip(xys_, covs_, colors_, opacity), total=len(xys_)):
         alpha = g(pixels_xy, m, S).view(1, img_height, img_width) * o
-        out_img += (alpha * c.view(3,1,1) * cum_alphas).permute((1,2,0)).flip(dims=(0,))
-        cum_alphas *= (1 - alpha)
+        out_img = out_img + (alpha * c.view(3,1,1) * cum_alphas).permute((1,2,0)).flip(dims=(0,))
+        cum_alphas = cum_alphas * (1 - alpha)
 
     return out_img
 
